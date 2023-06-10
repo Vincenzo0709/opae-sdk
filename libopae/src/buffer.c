@@ -384,3 +384,183 @@ fpga_result __FPGA_API__ fpgaGetIOAddress(fpga_handle handle, uint64_t wsid,
 	}
 	return result;
 }
+
+static fpga_result buffer_allocate_use_flags(void **addr, uint64_t len, int flags) {
+	void *addr_local = NULL;
+
+	UNUSED_PARAM(flags);
+
+	ASSERT_NOT_NULL(addr);
+
+	/* ! FPGA_BUF_PREALLOCATED, allocate memory using huge pages
+	   For buffer > 2M, use 1G-hugepage to ensure pages are
+	   contiguous */
+	if (len > 2 * MB)
+		addr_local = mmap(ADDR, len, PROTECTION, FLAGS_1G | MAP_SHARED, 0, 0);
+	else if (len > 4 * KB)
+		addr_local = mmap(ADDR, len, PROTECTION, FLAGS_2M | MAP_SHARED, 0, 0);
+	else
+		addr_local = mmap(ADDR, len, PROTECTION, FLAGS_4K | MAP_SHARED, 0, 0);
+	if (addr_local == MAP_FAILED) {
+		if (errno == ENOMEM) {
+			if (len > 2 * MB)
+				FPGA_MSG("Could not allocate buffer (no free 1 "
+					 "GiB huge pages)");
+			if (len > 4 * KB)
+				FPGA_MSG("Could not allocate buffer (no free 2 "
+					 "MiB huge pages)");
+			else
+				FPGA_MSG("Could not allocate buffer (out of "
+					 "memory)");
+			return FPGA_NO_MEMORY;
+		}
+		FPGA_MSG("FPGA buffer mmap failed: %s", strerror(errno));
+		return FPGA_INVALID_PARAM;
+	}
+
+	*addr = addr_local;
+	return FPGA_OK;
+}
+
+fpga_result __FPGA_API__ fpgaPrepareBuffer_use_flags(fpga_handle handle, uint64_t len,
+					   void **buf_addr, uint64_t *wsid,
+					   int flags)
+{
+	void *addr = NULL;
+	fpga_result result = FPGA_OK;
+	struct _fpga_handle *_handle = (struct _fpga_handle *) handle;
+	int err;
+
+	bool preallocated = (flags & FPGA_BUF_PREALLOCATED);
+	bool quiet = (flags & FPGA_BUF_QUIET);
+
+	uint64_t pg_size;
+
+	result = handle_check_and_lock(_handle);
+	if (result)
+		return result;
+
+	/* Assure wsid is a valid pointer */
+	if (!wsid) {
+		FPGA_MSG("WSID is NULL");
+		result = FPGA_INVALID_PARAM;
+		goto out_unlock;
+	}
+
+	if (flags & (~(FPGA_BUF_PREALLOCATED | FPGA_BUF_QUIET))) {
+		FPGA_MSG("Unrecognized flags");
+		result = FPGA_INVALID_PARAM;
+		goto out_unlock;
+	}
+
+	pg_size = (uint64_t) sysconf(_SC_PAGE_SIZE);
+
+	if (preallocated) {
+		/* A special case: respond FPGA_OK when !buf_addr and !len
+		 * as an indication that FPGA_BUF_PREALLOCATED is supported
+		 * by the library. */
+		if (!buf_addr && !len) {
+			result = FPGA_OK;
+			goto out_unlock;
+		}
+
+		/* buffer is already allocated, check addresses */
+		if (!buf_addr) {
+			FPGA_MSG("No preallocated buffer address given");
+			result = FPGA_INVALID_PARAM;
+			goto out_unlock;
+		}
+		if (!(*buf_addr)) {
+			FPGA_MSG("Preallocated buffer address is NULL");
+			result = FPGA_INVALID_PARAM;
+			goto out_unlock;
+		}
+		/* check length */
+		if (!len || (len & (pg_size - 1))) {
+			FPGA_MSG("Preallocated buffer size is not a non-zero multiple of page size");
+			result = FPGA_INVALID_PARAM;
+			goto out_unlock;
+		}
+		addr = *buf_addr;
+	} else {
+
+		if (!buf_addr) {
+			FPGA_MSG("buffer address is NULL");
+			result = FPGA_INVALID_PARAM;
+			goto out_unlock;
+		}
+
+		if (!len) {
+			FPGA_MSG("buffer length is zero");
+			result = FPGA_INVALID_PARAM;
+			goto out_unlock;
+		}
+
+		/* round up to nearest page boundary */
+		if (len & (pg_size - 1)) {
+			len = pg_size + (len & ~(pg_size - 1));
+		}
+
+		result = buffer_allocate_use_flags(&addr, len, flags);
+		if (result != FPGA_OK) {
+			goto out_unlock;
+		}
+	}
+
+	/* Set ioctl fpga_port_dma_map struct parameters */
+	struct fpga_port_dma_map dma_map = {.argsz = sizeof(dma_map),
+					    .flags = 0,
+					    .user_addr = (__u64) addr,
+					    .length = (__u64) len,
+					    .iova = 0};
+
+	/* Dispatch ioctl command */
+	if (ioctl(_handle->fddev, FPGA_PORT_DMA_MAP, &dma_map) != 0) {
+		if (!preallocated) {
+			buffer_release(addr, len);
+		}
+
+		if (!quiet) {
+			FPGA_MSG("FPGA_PORT_DMA_MAP ioctl failed: %s",
+				 strerror(errno));
+		}
+
+		result = FPGA_INVALID_PARAM;
+		goto out_unlock;
+	}
+
+	/* Generate unique workspace ID */
+	*wsid = wsid_gen();
+
+	/* Add to workspace id in order to store buffer length */
+	if (!wsid_add(_handle->wsid_root,
+		      *wsid,
+		      dma_map.user_addr,
+		      dma_map.iova,
+		      len,
+		      0,
+		      0,
+		      flags)) {
+		if (!preallocated) {
+			buffer_release(addr, len);
+		}
+
+		FPGA_MSG("Failed to add workspace id %lu", *wsid);
+		result = FPGA_NO_MEMORY;
+		goto out_unlock;
+	}
+
+	/* Update buf_addr */
+	if (buf_addr)
+		*buf_addr = addr;
+
+	/* Return */
+	result = FPGA_OK;
+
+out_unlock:
+	err = pthread_mutex_unlock(&_handle->lock);
+	if (err) {
+		FPGA_ERR("pthread_mutex_unlock() failed: %s", strerror(err));
+	}
+	return result;
+}
