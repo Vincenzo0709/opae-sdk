@@ -33,6 +33,9 @@
 #include "common_int.h"
 #include "intel-fpga.h"
 
+#include "buffer_shared.h"
+#define MAP_ANONYMOUS 0x20
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -62,11 +65,17 @@
 #define FLAGS_4K (MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED)
 #define FLAGS_2M (FLAGS_4K | MAP_HUGETLB)
 #define FLAGS_1G (FLAGS_2M | MAP_1G_HUGEPAGE)
+#define FLAGS_4K_S (MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED)
+#define FLAGS_2M_S (FLAGS_4K_S | MAP_HUGETLB)
+#define FLAGS_1G_S (FLAGS_2M_S | MAP_1G_HUGEPAGE)
 #else
 #define ADDR (void *)(0x0UL)
 #define FLAGS_4K (MAP_PRIVATE | MAP_ANONYMOUS)
 #define FLAGS_2M (FLAGS_4K | MAP_HUGETLB)
 #define FLAGS_1G (FLAGS_2M | MAP_1G_HUGEPAGE)
+#define FLAGS_4K_S (MAP_SHARED | MAP_ANONYMOUS)
+#define FLAGS_2M_S (FLAGS_4K_S | MAP_HUGETLB)
+#define FLAGS_1G_S (FLAGS_2M_S | MAP_1G_HUGEPAGE)
 #endif
 
 
@@ -385,7 +394,7 @@ fpga_result __FPGA_API__ fpgaGetIOAddress(fpga_handle handle, uint64_t wsid,
 	return result;
 }
 
-static fpga_result buffer_allocate_use_flags(void **addr, uint64_t len, int flags) {
+fpga_result buffer_allocate_shared(void **addr, uint64_t len, int flags) {
 	void *addr_local = NULL;
 
 	UNUSED_PARAM(flags);
@@ -395,12 +404,18 @@ static fpga_result buffer_allocate_use_flags(void **addr, uint64_t len, int flag
 	/* ! FPGA_BUF_PREALLOCATED, allocate memory using huge pages
 	   For buffer > 2M, use 1G-hugepage to ensure pages are
 	   contiguous */
-	if (len > 2 * MB)
-		addr_local = mmap(ADDR, len, PROTECTION, FLAGS_1G | MAP_SHARED, 0, 0);
-	else if (len > 4 * KB)
-		addr_local = mmap(ADDR, len, PROTECTION, FLAGS_2M | MAP_SHARED, 0, 0);
-	else
-		addr_local = mmap(ADDR, len, PROTECTION, FLAGS_4K | MAP_SHARED, 0, 0);
+	if (len > 2 * MB) {
+		addr_local = mmap(ADDR, len, PROTECTION, FLAGS_1G_S, 0, 0);
+		printf("\nPagina shared da 1G: %d\n", FLAGS_1G_S);
+	}
+	else if (len > 4 * KB) {
+		addr_local = mmap(ADDR, len, PROTECTION, FLAGS_2M_S, 0, 0);
+		printf("\nPagina shared da 2MB: %d\n", FLAGS_2M_S);
+	}
+	else {
+		addr_local = mmap(ADDR, len, PROTECTION, FLAGS_4K_S, 0, 0);
+		printf("\nPagina shared da 4KB: %d\n", FLAGS_4K_S);
+	}
 	if (addr_local == MAP_FAILED) {
 		if (errno == ENOMEM) {
 			if (len > 2 * MB)
@@ -422,7 +437,7 @@ static fpga_result buffer_allocate_use_flags(void **addr, uint64_t len, int flag
 	return FPGA_OK;
 }
 
-fpga_result __FPGA_API__ fpgaPrepareBuffer_use_flags(fpga_handle handle, uint64_t len,
+fpga_result fpgaPrepareBuffer_shared(fpga_handle handle, uint64_t len,
 					   void **buf_addr, uint64_t *wsid,
 					   int flags)
 {
@@ -501,7 +516,7 @@ fpga_result __FPGA_API__ fpgaPrepareBuffer_use_flags(fpga_handle handle, uint64_
 			len = pg_size + (len & ~(pg_size - 1));
 		}
 
-		result = buffer_allocate_use_flags(&addr, len, flags);
+		result = buffer_allocate_shared(&addr, len, flags);
 		if (result != FPGA_OK) {
 			goto out_unlock;
 		}
