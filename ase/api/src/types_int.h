@@ -35,7 +35,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <opae/types_enum.h>
-#include <pthread.h>
 
 #define FPGA_BBS_VER_MAJOR(i) (((i) >> 56) & 0xf)
 #define FPGA_BBS_VER_MINOR(i) (((i) >> 52) & 0xf)
