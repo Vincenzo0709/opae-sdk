@@ -54,6 +54,8 @@ const uint32_t mtnlb_max_threads = 2047;  // 11 bits
 const uint32_t mtnlb_max_count = 1048575; // 20 bits
 const uint32_t mtnlb_max_stride = 4294967295; // 32 bit
 
+const uint32_t hls_base_offset = 0x80; //match tho component offset in Platform Designer
+
 /// @brief test mode constants to use for
 /// NLB config register
 enum class nlb_mode : uint32_t
@@ -70,20 +72,20 @@ enum class nlb_mode : uint32_t
 enum class nlb3_csr : uint32_t
 {
     //scratchpad0 = 0x0100,
-    busy        = 0x0000,   // MOD
-    start       = 0x0008,   // MOD
-    interrupt   = 0x0010,   // MOD
-    done        = 0x0018,   // MOD
-    retrn       = 0x0020,   // MOD
-    masterRead  = 0x0028,   // MOD
-    masterWrite = 0x0030,   // MOD
-    num_lines   = 0x0038,   // MOD
-    ctl         = 0x0040,   // MOD
-    cfg         = 0x0048,   // MOD
+    busy        = hls_base_offset + 0x0000,   // MOD
+    start       = hls_base_offset + 0x0008,   // MOD
+    interrupt   = hls_base_offset + 0x0010,   // MOD
+    done        = hls_base_offset + 0x0018,   // MOD
+    retrn       = hls_base_offset + 0x0020,   // MOD
+    masterRead  = hls_base_offset + 0x0028,   // MOD
+    masterWrite = hls_base_offset + 0x0030,   // MOD
+    num_lines   = hls_base_offset + 0x0038,   // MOD
+    ctl         = hls_base_offset + 0x0040,   // MOD
+    cfg         = hls_base_offset + 0x0048,   // MOD
     //src_addr    = 0x0120,
     //dst_addr    = 0x0128,
     //status2     = 0x0170,
-    strided_acs = 0x0050    // MOD
+    strided_acs = hls_base_offset + 0x0050    // MOD
     //mode7_args  = 0x0180,
     //cmdq_sw     = 0x0190,
     //cmdq_hw     = 0x0198

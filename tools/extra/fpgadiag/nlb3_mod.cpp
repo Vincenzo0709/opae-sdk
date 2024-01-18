@@ -608,7 +608,7 @@ bool nlb3::run()
             // Sleep because wait function is not used
             std::chrono::duration<int, seconds> t(1);
             std::this_thread::sleep_for(t);
-            // Tests that complete bit is set
+            // Test that complete bit is set
             uint64_t val;
             accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::done), val);
             if (val != done_value_hls) {
