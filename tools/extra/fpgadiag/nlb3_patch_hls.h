@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
-#include "nlb_mod.h"
+#include "nlb_patch_hls.h"
 #include "option_map.h"
 #include "fpga_app/accelerator_app.h"
 #include "accelerator.h"

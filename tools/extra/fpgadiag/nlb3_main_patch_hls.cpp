@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include <sstream>
-#include "nlb3_mod.h"
+#include "nlb3_patch_hls.h"
 #include "log.h"
 #include "utils.h"
 #include "option.h"
@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
             nlb.assign(accelerator_obj);
             if (nlb.setup())
             {
-                printf("__MODIFIED__ fpgadiag versione cpp\n");
+                printf("__MODIFIED__ fpgadiag cpp\n");
                 return nlb.run() ? 0 : 3;
             }
             else
