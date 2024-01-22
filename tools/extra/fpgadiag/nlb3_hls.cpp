@@ -24,7 +24,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,  EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "nlb3_patch_hls.h"
+#include "nlb3_hls.h"
 #include "fpga_app/fpga_common.h"
 #include "nlb_cache_prime.h"
 #include "nlb_stats.h"

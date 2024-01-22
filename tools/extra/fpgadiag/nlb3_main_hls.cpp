@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include <sstream>
-#include "nlb3_patch_hls.h"
+#include "nlb3_hls.h"
 #include "log.h"
 #include "utils.h"
 #include "option.h"
