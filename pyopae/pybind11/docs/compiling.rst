@@ -33,7 +33,7 @@ extension module can be created with just a few lines of code:
 
 .. code-block:: cmake
 
-    cmake_minimum_required(VERSION 2.8.12)
+    cmake_minimum_required(VERSION 3.5)
     project(example)
 
     add_subdirectory(pybind11)
@@ -139,7 +139,7 @@ See the `Config file`_ docstring for details of relevant CMake variables.
 
 .. code-block:: cmake
 
-    cmake_minimum_required(VERSION 2.8.12)
+    cmake_minimum_required(VERSION 3.5)
     project(example)
 
     find_package(pybind11 REQUIRED)
@@ -165,7 +165,7 @@ to an independently constructed (through ``add_library``, not
 
 .. code-block:: cmake
 
-    cmake_minimum_required(VERSION 3.0)
+    cmake_minimum_required(VERSION 3.5)
     project(example)
 
     find_package(pybind11 REQUIRED)  # or add_subdirectory(pybind11)
@@ -201,7 +201,7 @@ information about usage in C++, see :doc:`/advanced/embedding`.
 
 .. code-block:: cmake
 
-    cmake_minimum_required(VERSION 3.0)
+    cmake_minimum_required(VERSION 3.5)
     project(example)
 
     find_package(pybind11 REQUIRED)  # or add_subdirectory(pybind11)

@@ -37,9 +37,9 @@
 #include "mmio.h"
 #include "fpga_errors.h"
 
-#define PRINT_SOMETHING(stringa)                \
-    #ifdef PRINTDEBUG                           \
-        printf("\n\nDEBUG PRINT\n\t%s\n", stringa);
+#define PRINT(stringa)                \
+    #ifdef DPRINT                           \
+        printf("\n\nDEBUG PRINT\n\t%s\n\t\t%s\n", __FILE__, stringa);
     #endif
 
 
