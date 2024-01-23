@@ -43,7 +43,9 @@ int main(int argc, char* argv[])
     option_map & opts = nlb.get_options();
 
     parser.parse_args(argc, argv, opts);
-    PRINT("Options gained")
+    #ifdef DPRINT
+        PRINT("Options gained")
+    #endif
 
     bool show_help = false;
     opts.get_value<bool>("help", show_help);
@@ -69,7 +71,9 @@ int main(int argc, char* argv[])
         }
         log.info() << "Using config file: " << config << std::endl;
     }
-    PRINT("Config")
+    #ifdef DPRINT
+        PRINT("Config")
+    #endif
 
     option_map::ptr_t filter(new option_map(opts));
 
@@ -83,7 +87,9 @@ int main(int argc, char* argv[])
         if (accelerator_obj->open(shared))
         {
             nlb.assign(accelerator_obj);
-            PRINT("Accelerator fpga")
+            #ifdef DPRINT
+                PRINT("Accelerator fpga")
+            #endif
             if (nlb.setup())
             {
                 printf("__MODIFIED__ fpgadiag cpp\n");
