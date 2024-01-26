@@ -33,9 +33,9 @@ from subprocess import CalledProcessError
 cwd = os.path.dirname(os.path.realpath(__file__))
 cmd_list = ['lpbk1', 'read', 'write', 'trput', 'sw']
 cmd_map = {'lpbk1': ['nlb0'],
-           'read': ['nlb3', '--mode=read'],
-           'write': ['nlb3', '--mode=write'],
-           'trput': ['nlb3', '--mode=trput'],
+           'read': ['nlb3_hls', '--mode=read'],
+           'write': ['nlb3_hls', '--mode=write'],
+           'trput': ['nlb3_hls', '--mode=trput'],
            'sw': ['nlb7']}
 
 if __name__ == "__main__":
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     cmdline = ' '.join(cmdline)
 
     # Control print
-    print "Starting __MODIFIED__ fpgadiag py\n"
+    print "Starting __MODIFIED__ fpgadiag\n"
     try:
         subprocess.check_call(cmdline, shell=True)
     except CalledProcessError as e:

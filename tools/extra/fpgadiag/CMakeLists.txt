@@ -35,22 +35,39 @@ include_directories(
     )
 
 add_library(opae-c++-nlb SHARED nlb.h
-                       nlb_cache_prime.h
-                       nlb_cache_prime.cpp
-                       nlb_stats.h
-                       nlb_stats.cpp
-                       nlb0.h
-                       nlb0.cpp
-                       nlb3.h
-                       nlb3.cpp
-                       nlb7.h
-                       nlb7.cpp)
+                      nlb_cache_prime.h
+                      nlb_cache_prime.cpp
+                      nlb_stats.h
+                      nlb_stats.cpp
+                      nlb0.h
+                      nlb0.cpp
+                      nlb3.h
+                      nlb3.cpp
+                      nlb7.h
+                      nlb7.cpp)
 
 set_install_rpath(opae-c++-nlb)
 
+add_library(opae-c++-nlb-hls SHARED
+                    nlb_hls.h
+                    nlb_cache_prime_hls.h
+                    nlb_cache_prime_hls.cpp
+                    nlb_stats.h
+                    nlb_stats.cpp
+                    nlb3_hls.h
+                    nlb3_hls.cpp)
+
+set_install_rpath(opae-c++-nlb-hls)
+
 target_link_libraries(opae-c++-nlb opae-c opae-c++ pthread)
 
+target_link_libraries(opae-c++-nlb-hls opae-c opae-c++ pthread)
+
 set_target_properties(opae-c++-nlb PROPERTIES
+  VERSION ${INTEL_FPGA_API_VERSION}
+  SOVERSION ${INTEL_FPGA_API_VER_MAJOR})
+
+set_target_properties(opae-c++-nlb-hls PROPERTIES
   VERSION ${INTEL_FPGA_API_VERSION}
   SOVERSION ${INTEL_FPGA_API_VER_MAJOR})
 
@@ -60,13 +77,21 @@ macro(add_fpgadiag_app target_name sources)
     set_install_rpath(${target_name})
 endmacro(add_fpgadiag_app target_name sources)
 
+macro(add_fpgadiag_app_hls target_name sources)
+    add_executable(${target_name} ${sources})
+    target_link_libraries(${target_name} opae-c++-utils uuid pthread opae-c opae-c++ opae-c++-nlb-hls)
+    set_install_rpath(${target_name})
+endmacro(add_fpgadiag_app target_name sources)
+
 add_fpgadiag_app( nlb0    nlb0_main.cpp   )
 add_fpgadiag_app( nlb3    nlb3_main.cpp   )
+add_fpgadiag_app_hls( nlb3_hls nlb3_main_hls.cpp )
 add_fpgadiag_app( nlb7    nlb7_main.cpp   )
 add_fpgadiag_app( fpgamux mux.cpp         )
 
 set(binaries nlb0
              nlb3
+             nlb3_hls
              nlb7
              fpgamux)
 
@@ -77,6 +102,10 @@ install(PROGRAMS fpgadiag
 install(TARGETS opae-c++-nlb
    LIBRARY DESTINATION ${OPAE_LIB_INSTALL_DIR}
    COMPONENT opaecxxnlb)
+
+install(TARGETS opae-c++-nlb-hls
+  LIBRARY DESTINATION ${OPAE_LIB_INSTALL_DIR}
+  COMPONENT opaecxxnlbhls)
 
 install(TARGETS ${binaries}
     RUNTIME DESTINATION bin

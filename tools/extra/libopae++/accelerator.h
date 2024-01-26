@@ -37,8 +37,6 @@
 #include "mmio.h"
 #include "fpga_errors.h"
 
-#define PRINT(stringa) printf("\n\nDEBUG PRINT\n\t%s\n\t\t%s\n", __FILE__, stringa);
-
 
 namespace intel
 {

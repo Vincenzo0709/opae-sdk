@@ -36,7 +36,7 @@ class Nlb3Mode(bc.BistMode):
 
     def __init__(self):
         modes = ['read', 'write', 'trput']
-        params = ('--mode={} --read-vc=vh0 --write-vc=vh0 '
+        params = ('--mode={} '
                   '--multi-cl=4 --begin=1024, --end=1024 --timeout-sec=5 '
                   '--cont')
         self.executables = {mode: params.format(mode) for mode in modes}
@@ -44,8 +44,8 @@ class Nlb3Mode(bc.BistMode):
     def run(self, gbs_path, bus_num):
         bc.load_gbs(gbs_path, bus_num)
         for test, param in self.executables.items():
-            print "Running fpgadiag {} test...\n".format(test)
-            cmd = "fpgadiag -B {} {}".format(bus_num, param)
+            print "Running fpgadiag __MODIFIED__ {} test...\n".format(test)
+            cmd = "./fpgadiag -B {} {}".format(bus_num, param)
             try:
                 subprocess.check_call(cmd, shell=True)
             except subprocess.CalledProcessError as e:
