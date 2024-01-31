@@ -117,16 +117,16 @@ public:
     {
         if ((offset < size_) && (virtual_address_ != nullptr))
         {
-            *reinterpret_cast<T*>(virtual_address_ + offset) = value;
+            ((T *)virtual_address_)[offset] = value;//*reinterpret_cast<T*>(virtual_address_ + offset) = value;
         }
     }
 
     template<typename T>
     T read(std::size_t offset = 0) const
     {
-        if ((offset < size_) && (virtual_address_ != nullptr))
+        if ((offset*sizeof(T) < size_) && (virtual_address_ != nullptr))
         {
-            return *reinterpret_cast<T*>(virtual_address_ + offset);
+            return (((T *)virtual_address_)[offset]);//*reinterpret_cast<T*>(virtual_address_ + (offset * sizeof(T)));
         }
         return T();
     }

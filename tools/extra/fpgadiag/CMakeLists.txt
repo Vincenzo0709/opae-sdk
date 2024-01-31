@@ -52,8 +52,8 @@ add_library(opae-c++-nlb-hls SHARED
                     nlb_hls.h
                     nlb_cache_prime_hls.h
                     nlb_cache_prime_hls.cpp
-                    nlb_stats.h
-                    nlb_stats.cpp
+                    nlb_stats_hls.h
+                    nlb_stats_hls.cpp
                     nlb3_hls.h
                     nlb3_hls.cpp)
 

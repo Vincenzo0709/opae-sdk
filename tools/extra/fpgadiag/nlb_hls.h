@@ -199,11 +199,11 @@ enum class nlb3_dsm : uint32_t
 {
     //basel           = 0x0110,
     //baseh           = 0x0114,
-    //test_complete   = 0x0040,   //
+    test_complete_offs= 0x0040,   // MOD
     //test_error      = 0x0044,
     //num_clocks      = 0x0048,
-    //num_reads       = 0x0050,   //
-    //num_writes      = 0x0054,   //
+    num_reads_offs    = 0x0050,   // MOD
+    num_writes_offs   = 0x0054,   // MOD
     //start_overhead  = 0x0058,
     //end_overhead    = 0x005c
 };

@@ -27,7 +27,7 @@
 #include "nlb3_hls.h"
 #include "fpga_app/fpga_common.h"
 #include "nlb_cache_prime_hls.h"
-#include "nlb_stats.h"
+#include "nlb_stats_hls.h"
 #include "log.h"
 #include <chrono>
 #include <thread>
@@ -48,14 +48,14 @@ nlb3::nlb3()
 , config_("nlb3_hls.json")
 , target_("fpga")
 , mode_("read")
-, afu_id_("5FA7FD4B-867C-484C-9440-28430B016F3D")//("F7DF405C-BD7A-CF72-22F1-44B0B93ACD18")
+, afu_id_("F7DF405C-BD7A-CF72-22F1-44B0B93ACD18")//("5FA7FD4B-867C-484C-9440-28430B016F3D")
 // , dsm_size_(MB(2))
 , stride_acs_(1)
 , num_strides_(0)
 , step_(1)
 , begin_(1)
 , end_(1)
-// , frequency_(DEFAULT_FREQ)
+, frequency_(DEFAULT_FREQ)
 , cont_(false)
 , suppress_header_(false)
 , csv_format_(false)
@@ -92,7 +92,7 @@ nlb3::nlb3()
     options_.add_option<uint8_t>("device",           'D', option::with_argument, "Device number of PCIe device");
     options_.add_option<uint8_t>("function",         'F', option::with_argument, "Function number of PCIe device");
     options_.add_option<std::string>("guid",         'G', option::with_argument, "accelerator id to enumerate", afu_id_);
-    // options_.add_option<uint32_t>("freq",            'T', option::with_argument, "Clock frequency (used for bw measurements)", frequency_);
+    options_.add_option<uint32_t>("freq",            'T', option::with_argument, "Clock frequency (used for bw measurements)", frequency_);
     options_.add_option<bool>("suppress-hdr",             option::no_argument,   "Suppress column headers", suppress_header_);
     options_.add_option<bool>("csv",                 'V', option::no_argument,   "Comma separated value format", csv_format_);
     options_.add_option<bool>("suppress-stats",           option::no_argument,   "Show stas at end", suppress_stats_);
@@ -426,7 +426,7 @@ bool nlb3::run()
     dma_buffer::ptr_t out;   // output workspace
 
     // MOD * three longs more are needed for num_reads, num_writes and complete signal
-    std::size_t buf_size = CL(stride_acs_ * end_) + 24;  // size of input and output buffer (each)
+    std::size_t buf_size = CL(stride_acs_ * end_ + 1);  // size of input and output buffer (each)
     // * MOD
 
     // Allocate the smallest possible workspaces for DSM, Input and Output
@@ -474,11 +474,11 @@ bool nlb3::run()
     // out->fill(0);
     // * MOD
 
-    // if (!accelerator_->reset())
-    // {
-    //     log_.error("nlb3") << "accelerator reset failed." << std::endl;
-    //     return false;
-    // }
+    if (!accelerator_->reset())
+    {
+        log_.error("nlb3") << "accelerator reset failed." << std::endl;
+        return false;
+    }
 
     // // prime cache
     // bool do_cool_fpga = false;
@@ -531,6 +531,31 @@ bool nlb3::run()
     //         it = i++;
     //     }
     // }
+    uint64_t data = 0;
+	if (!accelerator_->read_mmio64(static_cast<uint32_t>(AFU_DFH_REG), data)) {
+        printf("Errore in lettura\n");
+    }
+	printf("AFU DFH REG = %08lx\n", data);
+
+    if (!accelerator_->read_mmio64(static_cast<uint32_t>(AFU_ID_LO), data)) {
+        printf("Errore in lettura\n");
+    }
+	printf("AFU ID LO = %08lx\n", data);
+
+    if (!accelerator_->read_mmio64(static_cast<uint32_t>(AFU_ID_HI), data)) {
+        printf("Errore in lettura\n");
+    }
+	printf("AFU ID HI = %08lx\n", data);
+
+    if (!accelerator_->read_mmio64(static_cast<uint32_t>(AFU_NEXT), data)) {
+        printf("Errore in lettura\n");
+    }
+	printf("AFU NEXT = %08lx\n", data);
+
+    if (!accelerator_->read_mmio64(static_cast<uint32_t>(AFU_RESERVED), data)) {
+        printf("Errore in lettura\n");
+    }
+	printf("AFU RESERVED = %08lx\n", data);
 
     // MOD * reset not needed, no dsm
     // // assert afu reset
@@ -548,31 +573,78 @@ bool nlb3::run()
     // accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::dst_addr), CACHELINE_ALIGNED_ADDR(out->iova()));
     
     // Enabling interrupts
-    accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::interrupt), interrupt_hls);
+    accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::interrupt), data);
+    printf("INTERRUPT SLAVE REG = %08lx\n", data);
+    accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::interrupt), data | interrupt_hls);
+    accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::interrupt), data);
+    printf("INTERRUPT SLAVE REG = %08lx\n", data);
 
     // Matching masterRead and masterWrite with buffers
-    accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterRead), CACHELINE_ALIGNED_ADDR(inp->iova()));
-    accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), CACHELINE_ALIGNED_ADDR(out->iova()));
-    
+    accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterRead), data);
+    accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), data);
+    printf("MASTER READ = %08lx\n", data);
+    printf("MASTER WRITE = %08lx\n", data);
+    accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterRead), /*CACHELINE_ALIGNED_ADDR*/(inp->iova()));
+    accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), /*CACHELINE_ALIGNED_ADDR*/(out->iova()));
+    accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterRead), data);
+    accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), data);
+    printf("MASTER READ = %08lx\n", data);
+    printf("MASTER WRITE = %08lx\n", data);
+
     // start bit set
-    accelerator_->write_mmio32(static_cast<uint32_t>(nlb3_csr::ctl), start_value_int);
+    uint32_t dat;
+    accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::ctl), dat);
+    printf("START SLAVE REG = %08x\n", dat);
+    accelerator_->write_mmio32(static_cast<uint32_t>(nlb3_csr::ctl), dat | start_value_int);
+    accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::ctl), dat);
+    printf("START SLAVE REG = %08x\n", dat);
+
     // * MOD
 
     // set the test mode
-    accelerator_->write_mmio32(static_cast<uint32_t>(nlb3_csr::cfg), 0);
+    accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::cfg), dat);
+    printf("CFG = %08x\n", dat);
     accelerator_->write_mmio32(static_cast<uint32_t>(nlb3_csr::cfg), cfg_.value());
+    accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::cfg), dat);
+    printf("CFG = %08x\n", dat);
+
     // set the stride value
+    accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::strided_acs), dat);
+    printf("STRIDED ACS = %08x\n", dat);
     accelerator_->write_mmio32(static_cast<uint32_t>(nlb3_csr::strided_acs), num_strides_);
+    accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::strided_acs), dat);
+    printf("STRIDED ACS = %08x\n", dat);
 
 
-    dsm_tuple dsm_tpl;
+    // dsm_tuple dsm_tpl;
     // run tests
     for (uint32_t i = begin_; i <= end_; i+=step_)
     {
-        dsm_->fill(0);
+        // dsm_->fill(0);
         out->fill(0);
         // MOD * input values cannot be = 3 (stop value)
         inp->fill(0);
+        
+        // printf("\nInput before ->\t[...,\n\t\t\t %x, ", inp->read<uint32_t>(BUF_SIZE_INT - (LINE_INTS * 3)));
+        // for (int i=(BUF_SIZE_INT - (LINE_INTS * 3) + 1); i < BUF_SIZE_INT; i++) {
+        //     if (i == (BUF_SIZE_INT - 1))
+        //         printf("%x]\n", inp->read<uint32_t>(i));
+        //     else if ((i % LINE_INTS) == (LINE_INTS - 1))
+        //         printf("%x\n\t\t\t ", inp->read<uint32_t>(i));
+        //     else
+        //         printf("%x, ", inp->read<uint32_t>(i));
+        // }
+
+        // printf("\nOutput before ->\t[...,\n\t\t %lx, ", out->read<uint64_t>(BUF_SIZE_LONG - (LINE_LONGS * 3)));
+        // for (int i = (BUF_SIZE_LONG - (LINE_LONGS * 3) + 1); i < (BUF_SIZE_LONG + LINE_LONGS); i++) {
+        //     if (i == (BUF_SIZE_LONG + LINE_LONGS - 1))
+        //         printf("%lx]\n", out->read<uint64_t>(i));
+        //     else if ((i % LINE_LONGS) == (LINE_LONGS - 1))
+        //         printf("%lx\n\t\t\t ", out->read<uint64_t>(i));
+        //     else
+        //         printf("%lx, ", out->read<uint64_t>(i));
+        // }
+
         // * MOD
 
         // MOD * Reset will not work asynchronously
@@ -583,7 +655,11 @@ bool nlb3::run()
         // * MOD
 
         // set number of cache lines for test
+        accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::num_lines), dat);
+        printf("NUM LINES = %08x\n", dat);
         accelerator_->write_mmio32(static_cast<uint32_t>(nlb3_csr::num_lines), i);
+        accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::num_lines), dat);
+        printf("NUM LINES = %08x\n", dat);
 
         // Read perf counters.
         fpga_cache_counters  start_cache_ctrs ;
@@ -595,7 +671,12 @@ bool nlb3::run()
         }
         // MOD * start signal must be given on a different offset
         // start the test
-        accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::start), start_value_hls);
+        accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::start), dat);
+        printf("START = %08x\n", dat);
+        accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::start), dat | start_value_hls);
+        accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::start), dat);
+        printf("START = %08x\n", dat);
+
         // * MOD
 
         if (cont_)
@@ -604,24 +685,31 @@ bool nlb3::run()
             // MOD * stop must be give on masterRead on all loactions
             // stop the device
             //accelerator_->write_mmio32(static_cast<uint32_t>(nlb3_csr::ctl), 7);
-            inp-> fill(stop_value_int);
+            for (int i=0; i<DEFAULT_LINES; i++) {
+                inp->write<uint32_t>(stop_value_int, i * LINE_INTS);
+            }
             // Sleep because wait function is not used
             std::chrono::duration<int, std::ratio<1>> t(1);
             std::this_thread::sleep_for(t);
+            
+            uint64_t done_val;
+            accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::done), done_val);
+            printf("DONE = %08lx\n", done_val);
+            // write on done interrupt register to reset
+            accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::done), done_val | interrupt_status_hls);
+
             // Test that complete bit is set
-            uint64_t val;
-            accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::done), val);
-            if (val != done_value_hls) {
+            if ((done_val & done_value_hls) != done_value_hls) {
                 log_.error("nlb3_hls") << "test timeout at " << i << " cachelines." << std::endl;
                 return false;
             }
-            // write on done register to reset
-            accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::done), interrupt_status_hls);
+            accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::done), done_val);
+            printf("DONE = %08lx\n", done_val);
 
             // read return value only for completeness
             uint64_t ret;
             accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::retrn), ret);
-            
+            printf("RETURN = %08lx\n", ret);
             // if (!dsm_->wait(static_cast<size_t>(nlb3_dsm::test_complete),
             //             dma_buffer::microseconds_t(10), dsm_timeout_, 0x1, 1))
             // {
@@ -630,6 +718,26 @@ bool nlb3::run()
             //     return false;
             // }
             // * MOD
+
+            printf("\nInput after ->\t[...,\n\t\t %u, ", inp->read<uint32_t>(BUF_SIZE_INT - (LINE_INTS * 3)));
+            for (int i=(BUF_SIZE_INT - (LINE_INTS * 3) + 1); i < BUF_SIZE_INT; i++) {
+                if (i == (BUF_SIZE_INT - 1))
+                    printf("%u]\n", inp->read<uint32_t>(i));
+                else if ((i % LINE_INTS) == (LINE_INTS - 1))
+                    printf("%u\n\t\t ", inp->read<uint32_t>(i));
+                else
+                    printf("%u, ", inp->read<uint32_t>(i));
+            }
+
+            printf("\nOutput after -> [...,\n\t\t %lu, ", out->read<uint64_t>(0));
+            for (int i = 1; i < (BUF_SIZE_LONG + LINE_LONGS); i++) {
+                if (i == (BUF_SIZE_LONG + LINE_LONGS - 1))
+                    printf("%lu]\n", out->read<uint64_t>(i));
+                else if ((i % LINE_LONGS) == (LINE_LONGS - 1))
+                    printf("%lu\n\t\t ", out->read<uint64_t>(i));
+                else
+                    printf("%lu, ", out->read<uint64_t>(i));
+            }
         }
         else
         {
@@ -644,6 +752,7 @@ bool nlb3::run()
             // // stop the device
             // accelerator_->write_mmio32(static_cast<uint32_t>(nlb3_csr::ctl), 7);
             // * MOD
+            printf("Niente test\n");
         }
         cachelines_ += i;
         // if we don't suppress stats then we show them at the end of each iteration
@@ -652,8 +761,7 @@ bool nlb3::run()
             // Read Perf Counters
             fpga_cache_counters  end_cache_ctrs  = accelerator_->cache_counters();
             fpga_fabric_counters end_fabric_ctrs = accelerator_->fabric_counters();
-
-            std::cout << intel::fpga::nlb::nlb_stats(dsm_,
+            std::cout << intel::fpga::nlb::nlb_stats(out,
                                                      i,
                                                      end_cache_ctrs - start_cache_ctrs,
                                                      end_fabric_ctrs - start_fabric_ctrs,
@@ -665,13 +773,12 @@ bool nlb3::run()
         else
         {
             // if we suppress stats, add the current dsm stats to the rolling tuple
-            dsm_tpl += dsm_tuple(dsm_);
+            // dsm_tpl += dsm_tuple(dsm_);
         }
     }
-    dsm_tpl.put(dsm_);
+    // dsm_tpl.put(dsm_);
 
-    dsm_.reset();
-
+    // dsm_.reset();
     return true;
 }
 
