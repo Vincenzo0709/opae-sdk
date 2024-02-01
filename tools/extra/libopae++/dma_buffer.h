@@ -117,7 +117,7 @@ public:
     {
         if ((offset < size_) && (virtual_address_ != nullptr))
         {
-            ((T *)virtual_address_)[offset] = value;//*reinterpret_cast<T*>(virtual_address_ + offset) = value;
+            ((T *)virtual_address_)[offset] = value;//*reinterpret_cast<T*>(virtual_address_ + offset * sizeof(T)) = value;
         }
     }
 

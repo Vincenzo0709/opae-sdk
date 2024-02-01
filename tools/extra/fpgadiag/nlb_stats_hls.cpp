@@ -121,8 +121,9 @@ std::ostream & operator << (std::ostream &os, const nlb_stats &stats)
     //     ticks = rawticks - (startpenalty + endpenalty);
     // }
 
-    auto num_reads = 0;//((uint64_t *)( ( stats.dsm_)->iova() ) )[0];
-    auto num_writes = 0;//((uint64_t *)( ( stats.dsm_)->iova() ) )[0];
+    // uint64_t ticks = stats.clock_freq_ * 5;
+    auto num_reads = stats.dsm_->read<uint64_t>(BUF_SIZE_LONG + 1);
+    auto num_writes = stats.dsm_->read<uint64_t>(BUF_SIZE_LONG + 2);
 
     if (csv)
     {
@@ -140,7 +141,7 @@ std::ostream & operator << (std::ostream &os, const nlb_stats &stats)
            << stats.cache_counters_[fpga_cache_counters::read_miss]     << ','
            << stats.cache_counters_[fpga_cache_counters::write_miss]    << ','
            << stats.cache_counters_[fpga_cache_counters::rx_eviction]   << ','
-        //    << ticks                                                     << ','
+           << "?"                                                     << ','
            << stats.read_bandwidth()                                    << ','
            << stats.write_bandwidth()                                   << ','
            << stats.fabric_counters_[fpga_fabric_counters::pcie0_read]  << ','
@@ -171,7 +172,7 @@ std::ostream & operator << (std::ostream &os, const nlb_stats &stats)
            << std::setw(13) << stats.cache_counters_[fpga_cache_counters::read_miss]   << ' '
            << std::setw(13) << stats.cache_counters_[fpga_cache_counters::write_miss]  << ' '
            << std::setw(10) << stats.cache_counters_[fpga_cache_counters::rx_eviction] << ' '
-        //    << std::setw(16) << ticks                                                   << ' '
+           << std::setw(16) << "?"                                                   << ' '
            << std::setw(14) << stats.read_bandwidth()                                  << ' '
            << std::setw(14) << stats.write_bandwidth()
            << std::endl     << std::endl;
@@ -225,7 +226,7 @@ std::string nlb_stats::normalized_freq() const
 
 std::string nlb_stats::read_bandwidth() const
 {
-    auto clockfreq = clock_freq_;
+    // auto clockfreq = clock_freq_;
     const double giga = 1000.0 * 1000.0 * 1000.0;
 
     // dsm_tuple dsm(dsm_, dsm_version_);
@@ -246,10 +247,10 @@ std::string nlb_stats::read_bandwidth() const
     // }
 
     const double Rds   = dsm_->read<uint64_t>(BUF_SIZE_LONG + 1);
-    const double Ticks = (double)(clockfreq * 5);
-    const double Hz    = (double)clockfreq;
+    // const double Ticks = (double)(clockfreq * 5);
+    // const double Hz    = (double)clockfreq;
 
-    double bw = (Rds * (CL(1) * Hz)) / Ticks;
+    double bw = (Rds * CCI_BYTES * BYTE_BITS) / 5;
 
     bw /= giga;
 
@@ -268,7 +269,7 @@ std::string nlb_stats::read_bandwidth() const
 
 std::string nlb_stats::write_bandwidth() const
 {
-    auto clockfreq = clock_freq_;
+    // auto clockfreq = clock_freq_;
     const double giga = 1000.0 * 1000.0 * 1000.0;
 
     // dsm_tuple dsm(dsm_, dsm_version_);
@@ -289,10 +290,10 @@ std::string nlb_stats::write_bandwidth() const
     // }
 
     const double Wrs   = dsm_->read<uint64_t>(BUF_SIZE_LONG + 2);
-    const double Ticks = (double)(clockfreq * 5);
-    const double Hz    = (double)clockfreq;
+    // const double Ticks = (double)(clockfreq * 5);
+    // const double Hz    = (double)clockfreq;
 
-    double bw = (Wrs * (CL(1) * Hz)) / Ticks;
+    double bw = (Wrs * CL(CCI_LINES) * 8) / 5;
 
     bw /= giga;
 

@@ -581,14 +581,14 @@ bool nlb3::run()
 
     // Matching masterRead and masterWrite with buffers
     accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterRead), data);
-    accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), data);
     printf("MASTER READ = %08lx\n", data);
+    accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), data);
     printf("MASTER WRITE = %08lx\n", data);
     accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterRead), /*CACHELINE_ALIGNED_ADDR*/(inp->iova()));
     accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), /*CACHELINE_ALIGNED_ADDR*/(out->iova()));
     accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterRead), data);
-    accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), data);
     printf("MASTER READ = %08lx\n", data);
+    accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), data);
     printf("MASTER WRITE = %08lx\n", data);
 
     // start bit set
@@ -673,6 +673,8 @@ bool nlb3::run()
         // start the test
         accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::start), dat);
         printf("START = %08x\n", dat);
+
+        auto tv_start = std::chrono::system_clock::now();
         accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::start), dat | start_value_hls);
         accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::start), dat);
         printf("START = %08x\n", dat);
@@ -688,10 +690,19 @@ bool nlb3::run()
             for (int i=0; i<DEFAULT_LINES; i++) {
                 inp->write<uint32_t>(stop_value_int, i * LINE_INTS);
             }
-            // Sleep because wait function is not used
-            std::chrono::duration<int, std::ratio<1>> t(1);
+            std::chrono::duration<int, std::ratio<1>> t(5);
             std::this_thread::sleep_for(t);
+            if (!out->wait(BUF_SIZE_LONG, dma_buffer::microseconds_t(10),
+                    dma_buffer::microseconds_t(1000), complete_value_int, complete_value_int)) {
+                    log_.error("nlb3_hls")  << "test timeout at "
+                                            << i << " cachelines." << std::endl;
+                    return false;
+            }
             
+            auto tv_end = std::chrono::system_clock::now();
+            std::chrono::duration<double, std::milli> elapsed = tv_end-tv_start;
+            printf("AFU Latency: %0.5f milliseconds\n", elapsed.count());
+
             uint64_t done_val;
             accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::done), done_val);
             printf("DONE = %08lx\n", done_val);
@@ -729,8 +740,8 @@ bool nlb3::run()
                     printf("%u, ", inp->read<uint32_t>(i));
             }
 
-            printf("\nOutput after -> [...,\n\t\t %lu, ", out->read<uint64_t>(0));
-            for (int i = 1; i < (BUF_SIZE_LONG + LINE_LONGS); i++) {
+            printf("\nOutput after -> [...,\n\t\t %lu, ", out->read<uint64_t>(BUF_SIZE_LONG - (LINE_LONGS * 4)));
+            for (int i = (BUF_SIZE_LONG - (LINE_LONGS * 4) + 1); i < (BUF_SIZE_LONG + LINE_LONGS); i++) {
                 if (i == (BUF_SIZE_LONG + LINE_LONGS - 1))
                     printf("%lu]\n", out->read<uint64_t>(i));
                 else if ((i % LINE_LONGS) == (LINE_LONGS - 1))
@@ -752,7 +763,7 @@ bool nlb3::run()
             // // stop the device
             // accelerator_->write_mmio32(static_cast<uint32_t>(nlb3_csr::ctl), 7);
             // * MOD
-            printf("Niente test\n");
+            printf("No continuous mode provided\n");
         }
         cachelines_ += i;
         // if we don't suppress stats then we show them at the end of each iteration
