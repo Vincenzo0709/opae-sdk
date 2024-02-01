@@ -25,76 +25,77 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
-#include "nlb_patch_hls.h"
-#include "option_map.h"
-#include "fpga_app/accelerator_app.h"
+#include "nlb_hls.h"
 #include "accelerator.h"
-#include "dma_buffer.h"
-#include "csr.h"
-#include "log.h"
-#include <chrono>
 
 namespace intel
 {
 namespace fpga
 {
-namespace diag
+namespace nlb
 {
 
-class nlb3 : public intel::fpga::accelerator_app
+class nlb_cache_cool
 {
 public:
-    nlb3();
-    nlb3(const std::string & name)
-    : accelerator_app(name)
-    {
-    }
-    ~nlb3();
+static const uint32_t fpga_cache_cool_size = CL(1024);
 
-    virtual intel::utils::option_map & get_options()          override { return options_; }
-    virtual void                       assign(accelerator::ptr_t accelerator) override { accelerator_ = accelerator;      }
-    virtual const std::string &        afu_id()               override { return afu_id_;  }
-    virtual const std::string &        name()                 override { return name_;    }
-    virtual bool                       setup()                override;
-    virtual bool                       run()                  override;
-    virtual dma_buffer::ptr_t          dsm()            const override { return dsm_; }
-    virtual uint64_t                   cachelines()     const override { return cachelines_; }
-
-    void show_help(std::ostream &os);
+    nlb_cache_cool(const std::string & target,
+                   accelerator::ptr_t accelerator,
+                   dma_buffer::ptr_t dsm,
+                   dma_buffer::ptr_t cool_buf,
+                   bool cmdq=false);
+    bool cool();
 
 private:
-    std::string name_;
-    std::string config_;
     std::string target_;
-    std::string mode_;
-    std::string afu_id_;
-
-    std::size_t dsm_size_;
-
-    uint32_t stride_acs_;
-    uint32_t num_strides_;
-    uint32_t step_;
-    uint32_t begin_;
-    uint32_t end_;
-    uint32_t frequency_;
-    bool cont_;
-    bool suppress_header_;
-    bool csv_format_;
-    bool suppress_stats_;
-    std::chrono::microseconds dsm_timeout_;
-    uint64_t cachelines_;
-
-    intel::utils::logger log_;
-    intel::utils::option_map options_;
-
     accelerator::ptr_t accelerator_;
     dma_buffer::ptr_t dsm_;
-    csr_t<uint32_t> cfg_;
-
-    std::chrono::duration<double> cont_timeout_;
+    dma_buffer::ptr_t cool_buf_;
+    bool cmdq_;
 };
 
-} // end of namespace diag
+class nlb_read_cache_warm
+{
+public:
+    nlb_read_cache_warm(const std::string & target,
+                        accelerator::ptr_t accelerator,
+                        dma_buffer::ptr_t dsm,
+                        dma_buffer::ptr_t src_buf,
+                        dma_buffer::ptr_t dst_buf,
+                        bool cmdq=false);
+    bool warm();
+
+private:
+    std::string target_;
+    accelerator::ptr_t accelerator_;
+    dma_buffer::ptr_t dsm_;
+    dma_buffer::ptr_t src_buf_;
+    dma_buffer::ptr_t dst_buf_;
+    bool cmdq_;
+};
+
+class nlb_write_cache_warm
+{
+public:
+    nlb_write_cache_warm(const std::string & target,
+                         accelerator::ptr_t accelerator,
+                         dma_buffer::ptr_t dsm,
+                         dma_buffer::ptr_t src_buf,
+                         dma_buffer::ptr_t dst_buf,
+                         bool cmdq=false);
+    bool warm();
+
+private:
+    std::string target_;
+    accelerator::ptr_t accelerator_;
+    dma_buffer::ptr_t dsm_;
+    dma_buffer::ptr_t src_buf_;
+    dma_buffer::ptr_t dst_buf_;
+    bool cmdq_;
+};
+
+} // end of namespace nlb
 } // end of namespace fpga
 } // end of namespace intel
 
