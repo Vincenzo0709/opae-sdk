@@ -51,7 +51,7 @@ def main(args):
             sys.exit("Could not find fpga, please try again")
     bdf = bdf[0]
     start = "==========================================================\n\n" \
-            "Beginning FPGA Built-In Self-Test\n\n"\
+            "Beginning FPGA __MODIFIED__ Built-In Self-Test\n\n"\
             "=========================================================="
     print start
 
@@ -61,7 +61,7 @@ def main(args):
 
     # Display data from FPGA info
     for feature in FEATURES:
-        cmd = "fpgainfo {} -B 0x{}".format(feature, bdf['bus'])
+        cmd = "./fpgainfo {} -B 0x{}".format(feature, bdf['bus'])
         subprocess.call(cmd, shell=True)
 
     gbs_paths = args.gbs_paths
