@@ -183,7 +183,7 @@ bool nlb3::setup()
             log_.error("nlb3") << "strided access too big" << std::endl;
             return false;
         }
-        num_strides_ = multi_cl * (stride_acs_ - 1);
+        num_strides_ = (stride_acs_ - 1);
     }
 
     // cache policy
