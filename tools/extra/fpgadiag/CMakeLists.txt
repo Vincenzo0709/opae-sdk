@@ -50,8 +50,6 @@ set_install_rpath(opae-c++-nlb)
 
 add_library(opae-c++-nlb-hls SHARED
                     nlb_hls.h
-                    nlb_cache_prime_hls.h
-                    nlb_cache_prime_hls.cpp
                     nlb_stats_hls.h
                     nlb_stats_hls.cpp
                     nlb3_hls.h

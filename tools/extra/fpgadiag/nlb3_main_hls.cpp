@@ -83,7 +83,6 @@ int main(int argc, char* argv[])
             nlb.assign(accelerator_obj);
             if (nlb.setup())
             {
-                printf("__MODIFIED__ nlb3\n");
                 return nlb.run() ? 0 : 3;
             }
             else

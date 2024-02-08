@@ -51,7 +51,7 @@ def main(args):
             sys.exit("Could not find fpga, please try again")
     bdf = bdf[0]
     start = "==========================================================\n\n" \
-            "Beginning FPGA __MODIFIED__ Built-In Self-Test\n\n"\
+            "Beginning FPGA HLS Built-In Self-Test\n\n"\
             "=========================================================="
     print start
 
@@ -65,10 +65,11 @@ def main(args):
         subprocess.call(cmd, shell=True)
 
     gbs_paths = args.gbs_paths
+    p = '-p' if vars(args)['print'] else ''
     for path in gbs_paths:
         mode_name = bist_common.get_mode_from_path(path)
         if mode_name == 'nlb_mode_3':
-            mode = bist_nlb3.Nlb3Mode()
+            mode = bist_nlb3.Nlb3Mode(p)
         elif mode_name == 'dma_afu':
             mode = bist_dma.DmaMode()
         elif mode_name == 'bist_afu':

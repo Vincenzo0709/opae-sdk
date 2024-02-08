@@ -129,3 +129,6 @@ def global_arguments(parser):
 
     parser.add_argument('gbs_paths', nargs='+', type=str,
                         help='Paths for the gbs files for BIST')
+    
+    parser.add_argument('-p', '--print', nargs='?', type=bool, default=False, required=False,
+                        help='Prints extra infos during execution')

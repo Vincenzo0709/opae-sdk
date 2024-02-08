@@ -32,19 +32,19 @@ import bist_common as bc
 
 
 class Nlb3Mode(bc.BistMode):
-    name = "nlb_3"
+    name = "nlb3_hls"
 
-    def __init__(self):
+    def __init__(self, print_):
         modes = ['read', 'write', 'trput']
         params = ('--mode={} '
                   '--multi-cl=1 --begin=1024 --end=1024 --timeout-sec=5 --strided-access=1 '
-                  '--cont')
-        self.executables = {mode: params.format(mode) for mode in modes}
+                  '--cont {}')
+        self.executables = {mode: params.format(mode, print_) for mode in modes}
 
     def run(self, gbs_path, bus_num):
         bc.load_gbs(gbs_path, bus_num)
         for test, param in self.executables.items():
-            print "Running fpgadiag __MODIFIED__ {} test...\n".format(test)
+            print "Running hls fpgadiag {} test...\n".format(test)
             cmd = "./fpgadiag -B {} {}".format(bus_num, param)
             try:
                 subprocess.check_call(cmd, shell=True)

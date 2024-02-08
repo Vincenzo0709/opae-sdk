@@ -47,6 +47,8 @@ namespace diag
 #define AFU_NEXT 0x18
 #define AFU_RESERVED 0x20
 
+#define PRINT(...) if(print_) fprintf(stdout, __VA_ARGS__);
+
 class nlb3 : public intel::fpga::accelerator_app
 {
 public:
@@ -89,6 +91,7 @@ private:
     bool suppress_stats_;
     std::chrono::microseconds dsm_timeout_;
     uint64_t cachelines_;
+    bool print_;
 
     intel::utils::logger log_;
     intel::utils::option_map options_;
