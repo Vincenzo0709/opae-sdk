@@ -144,7 +144,7 @@ std::string nlb_stats::read_bandwidth() const
     oss << bw;
     if (!(csv_ && suppress_hdr_))
     {
-        oss << " GB/s";
+        oss << " Gb/s";
     }
 
     return oss.str();
@@ -167,7 +167,7 @@ std::string nlb_stats::write_bandwidth() const
     oss << bw;
     if (!(csv_ && suppress_hdr_))
     {
-        oss << " GB/s";
+        oss << " Gb/s";
     }
 
     return oss.str();
