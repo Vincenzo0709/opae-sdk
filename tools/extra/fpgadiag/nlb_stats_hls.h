@@ -50,7 +50,7 @@ namespace nlb
 #define LINE_INTS       (LINE_BYTES / INT_BYTES)
 #define LINE_LONGS      (LINE_BYTES / LONG_BYTES)
 #define STRIDE_ACS      1
-#define DEFAULT_LINES   1024
+#define DEFAULT_LINES   8388608
 
 #define BUF_SIZE_BYTES      (STRIDE_ACS * DEFAULT_LINES * LINE_BYTES)
 #define BUF_SIZE_INT        (BUF_SIZE_BYTES / 4)
@@ -68,7 +68,7 @@ class nlb_stats
 public:
     nlb_stats(dma_buffer::ptr_t out,
               uint32_t cachelines,
-              bool continuous=false,
+              std::chrono::duration<double, std::milli> dur_,
               bool suppress_hdr=false,
               bool csv=false);
 
@@ -77,9 +77,9 @@ friend std::ostream & operator << (std::ostream &os, const nlb_stats &stats);
 private:
     dma_buffer::ptr_t out_;
     uint32_t cachelines_;
-    bool continuous_;
     bool suppress_hdr_;
     bool csv_;
+    std::chrono::duration<double, std::milli> dur_;
 
     std::string read_bandwidth() const;
     std::string write_bandwidth() const;

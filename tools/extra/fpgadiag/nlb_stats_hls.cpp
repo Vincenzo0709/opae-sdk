@@ -37,14 +37,14 @@ namespace nlb
 
 nlb_stats::nlb_stats(dma_buffer::ptr_t out,
                      uint32_t cachelines,
-                     bool continuous,
+                     std::chrono::duration<double, std::milli> dur,
                      bool suppress_hdr,
                      bool csv)
 : out_(out)
 , cachelines_(cachelines)
-, continuous_(continuous)
 , suppress_hdr_(suppress_hdr)
 , csv_(csv)
+, dur_(dur)
 {
 
 }
@@ -133,7 +133,7 @@ std::string nlb_stats::read_bandwidth() const
 
     const double Rds   = out_->read<uint64_t>(BUF_SIZE_LONG + 1);
 
-    double bw = (Rds * CCI_BYTES * BYTE_BITS) / 5;
+    double bw = (Rds * CL(CCI_LINES) * BYTE_BITS) / (dur_.count() / 1000);
 
     bw /= giga;
 
@@ -156,7 +156,7 @@ std::string nlb_stats::write_bandwidth() const
 
     const double Wrs   = out_->read<uint64_t>(BUF_SIZE_LONG + 2);
 
-    double bw = (Wrs * CL(CCI_LINES) * 8) / 5;
+    double bw = (Wrs * CL(CCI_LINES) * BYTE_BITS) / (dur_.count() / 1000);
 
     bw /= giga;
 

@@ -53,7 +53,6 @@ nlb3::nlb3()
 , step_(1)
 , begin_(1)
 , end_(1)
-, cont_(false)
 , suppress_header_(false)
 , csv_format_(false)
 , suppress_stats_(false)
@@ -68,7 +67,6 @@ nlb3::nlb3()
     options_.add_option<uint32_t>("end",             'e', option::with_argument, "where 1 <= <value> <= 65535", end_);
     options_.add_option<uint32_t>("multi-cl",        'u', option::with_argument, "one of {1, 2, 4}", 1);
     options_.add_option<uint32_t>("strided-access",  'a', option::with_argument, "where 1 <= <value> <= 64", 1);
-    options_.add_option<bool>("cont",                'L', option::no_argument,   "Continuous mode", cont_);
     options_.add_option<uint32_t>("timeout-usec",         option::with_argument, "Timeout for continuous mode (microseconds portion)", 0);
     options_.add_option<uint32_t>("timeout-msec",         option::with_argument, "Timeout for continuous mode (milliseconds portion)", 0);
     options_.add_option<uint32_t>("timeout-sec",          option::with_argument, "Timeout for continuous mode (seconds portion)", 1);
@@ -116,13 +114,6 @@ bool nlb3::setup()
         cfg_ |= nlb3_cfg::trput;
     }
 
-    // continuous?
-    options_.get_value<bool>("cont", cont_);
-    if (cont_)
-    {
-        cfg_ |= nlb3_cfg::cont;
-    }
-
     // multi-cl
     uint32_t multi_cl = 1;
     options_.get_value<uint32_t>("multi-cl", multi_cl);
@@ -152,19 +143,13 @@ bool nlb3::setup()
             log_.error("nlb3_hls") << "strided access too big" << std::endl;
             return false;
         }
-        num_strides_ = (stride_acs_ - 1);
+        num_strides_ = multi_cl * (stride_acs_ - 1);
     }
 
     // begin, end
     options_.get_value<uint32_t>("begin", begin_);
     options_.get_value<uint32_t>("end", end_);
     auto end_opt = options_.find("end");
-
-    if (begin_ > MAX_CL)
-    {
-        log_.error("nlb3_hls") << "begin: " << begin_ << " is greater than max: " << MAX_CL << std::endl;
-        return false;
-    }
 
     if (begin_ % step_ > 0)
     {
@@ -316,7 +301,8 @@ bool nlb3::run()
         PRINT("MASTER WRITE = %08lx\n", data);
         
         accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterRead), /*CACHELINE_ALIGNED_ADDR*/(inp->iova()));
-        accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), /*ssCACHELINE_ALIGNED_ADDR*/(out->iova()));
+        accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), /*CACHELINE_ALIGNED_ADDR*/(out->iova()));
+        
         accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterRead), data);
         PRINT("MASTER READ = %016lx\n", data);
         accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), data);
@@ -325,11 +311,11 @@ bool nlb3::run()
         // start bit set
         uint32_t dat = 0;
         accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::ctl), dat);
-        PRINT("START SLAVE REG = %08x\n", dat);
+        PRINT("CTL = %08x\n", dat);
         
         accelerator_->write_mmio32(static_cast<uint32_t>(nlb3_csr::ctl), dat | start_value_int);
         accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::ctl), dat);
-        PRINT("START SLAVE REG = %08x\n", dat);
+        PRINT("CTL = %08x\n", dat);
 
         // set the test mode
         accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::cfg), dat);
@@ -367,75 +353,58 @@ bool nlb3::run()
         accelerator_->read_mmio32(static_cast<uint32_t>(nlb3_csr::start), dat);
         PRINT("START = %08x\n", dat);
 
-        if (cont_)
-        {
-            std::this_thread::sleep_for(cont_timeout_);
-            
-            // Stop must be give on masterRead on all locations (only the first uint32_t needed)
-            for (int i=0; i<DEFAULT_LINES; i++) {
-                inp->write<uint32_t>(stop_value_int, i * LINE_INTS);
-            }
-            
-            std::chrono::duration<int, std::ratio<1>> t(5);
-            std::this_thread::sleep_for(t);
-            if (!out->wait(BUF_SIZE_LONG, dma_buffer::microseconds_t(10),
-                    dma_buffer::microseconds_t(1000), complete_value_int, complete_value_int)) {
-                    log_.error("nlb3_hls")  << "test timeout at "
-                                            << i << " cachelines." << std::endl;
-                    return false;
-            }
-            
-            auto tv_end = std::chrono::system_clock::now();
-            std::chrono::duration<double, std::milli> elapsed = tv_end-tv_start;
-            PRINT("AFU Latency: %0.5f milliseconds\n", elapsed.count());
-
-            // checking and resetting done signal
-            uint64_t done_val;
-            accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::done), done_val);
-            PRINT("DONE = %08lx\n", done_val);
-            
-            // write on done interrupt register to reset
-            accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::done), done_val | interrupt_status_hls);
-
-            // test that complete bit is set
-            if ((done_val & done_value_hls) != done_value_hls) {
-                log_.error("nlb3_hls") << "test timeout at " << i << " cachelines." << std::endl;
+        if (!out->wait(BUF_SIZE_LONG, dma_buffer::microseconds_t(20),
+                dma_buffer::microseconds_t(1000000), complete_value_int, complete_value_int)) {
+                log_.error("nlb3_hls")  << "test timeout at "
+                                        << i << " cachelines." << std::endl;
                 return false;
-            }
-            accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::done), done_val);
-            PRINT("DONE = %08lx\n", done_val);
-
-            // read return value only for completeness
-            uint64_t ret;
-            accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::retrn), ret);
-            PRINT("RETURN = %08lx\n", ret);
-
-            if (print_) {
-                printf("\nInput after ->\t[...,\n\t\t %u, ", inp->read<uint32_t>(BUF_SIZE_INT - (LINE_INTS * 3)));
-                for (int i=(BUF_SIZE_INT - (LINE_INTS * 3) + 1); i < BUF_SIZE_INT; i++) {
-                    if (i == (BUF_SIZE_INT - 1))
-                        printf("%u]\n", inp->read<uint32_t>(i));
-                    else if ((i % LINE_INTS) == (LINE_INTS - 1))
-                        printf("%u\n\t\t ", inp->read<uint32_t>(i));
-                    else
-                        printf("%u, ", inp->read<uint32_t>(i));
-                }
-
-                printf("\nOutput after -> [...,\n\t\t %lu, ", out->read<uint64_t>(BUF_SIZE_LONG - (LINE_LONGS * 4)));
-                for (int i = (BUF_SIZE_LONG - (LINE_LONGS * 4) + 1); i < (BUF_SIZE_LONG + LINE_LONGS); i++) {
-                    if (i == (BUF_SIZE_LONG + LINE_LONGS - 1))
-                        printf("%lu]\n", out->read<uint64_t>(i));
-                    else if ((i % LINE_LONGS) == (LINE_LONGS - 1))
-                        printf("%lu\n\t\t ", out->read<uint64_t>(i));
-                    else
-                        printf("%lu, ", out->read<uint64_t>(i));
-                }
-            }
         }
-        else
-        {
-            log_.error("nlb3_hls") << "this version doesn't support non continuous mode" << std::endl;
+            
+        auto tv_end = std::chrono::system_clock::now();
+        std::chrono::duration<double, std::milli> elapsed = tv_end-tv_start;
+        PRINT("AFU Latency: %0.5f milliseconds\n", elapsed.count());
+
+        // checking and resetting done signal
+        uint64_t done_val;
+        accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::done), done_val);
+        PRINT("DONE = %08lx\n", done_val);
+        
+        // write on done interrupt register to reset
+        accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::done), done_val | interrupt_status_hls);
+
+        // test that complete bit is set
+        if ((done_val & done_value_hls) != done_value_hls) {
+            log_.error("nlb3_hls") << "test timeout at " << i << " cachelines." << std::endl;
             return false;
+        }
+        accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::done), done_val);
+        PRINT("DONE = %08lx\n", done_val);
+
+        // read return value only for completeness
+        uint64_t ret;
+        accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::retrn), ret);
+        PRINT("RETURN = %08lx\n", ret);
+
+        if (print_) {
+            printf("\nInput after ->\t[...,\n\t\t %u, ", inp->read<uint32_t>(BUF_SIZE_INT - (LINE_INTS * 3)));
+            for (int i=(BUF_SIZE_INT - (LINE_INTS * 3) + 1); i < BUF_SIZE_INT; i++) {
+                if (i == (BUF_SIZE_INT - 1))
+                    printf("%u]\n", inp->read<uint32_t>(i));
+                else if ((i % LINE_INTS) == (LINE_INTS - 1))
+                    printf("%u\n\t\t ", inp->read<uint32_t>(i));
+                else
+                    printf("%u, ", inp->read<uint32_t>(i));
+            }
+
+            printf("\nOutput after -> [...,\n\t\t %lu, ", out->read<uint64_t>(BUF_SIZE_LONG - (LINE_LONGS * 3)));
+            for (int i = (BUF_SIZE_LONG - (LINE_LONGS * 3) + 1); i < (BUF_SIZE_LONG + LINE_LONGS); i++) {
+                if (i == (BUF_SIZE_LONG + LINE_LONGS - 1))
+                    printf("%lu]\n", out->read<uint64_t>(i));
+                else if ((i % LINE_LONGS) == (LINE_LONGS - 1))
+                    printf("%lu\n\t\t ", out->read<uint64_t>(i));
+                else
+                    printf("%lu, ", out->read<uint64_t>(i));
+            }
         }
 
         cachelines_ += i;
@@ -445,7 +414,7 @@ bool nlb3::run()
         {
             std::cout << intel::fpga::nlb::nlb_stats(out,
                                                      i,
-                                                     cont_,
+                                                     elapsed,
                                                      suppress_header_,
                                                      csv_format_);
         }
