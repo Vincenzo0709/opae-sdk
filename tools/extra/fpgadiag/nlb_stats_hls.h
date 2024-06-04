@@ -44,13 +44,14 @@ namespace nlb
 #define LONG_BYTES      8
 
 #define LINE_BYTES      64
-#define CCI_LINES       1
+#define CCI_LINES       4
 #define CCI_BYTES       (LINE_BYTES * CCI_LINES)
 #define LINE_SHORTS     (LINE_BYTES / SHORT_BYTES)
 #define LINE_INTS       (LINE_BYTES / INT_BYTES)
 #define LINE_LONGS      (LINE_BYTES / LONG_BYTES)
 #define STRIDE_ACS      1
-#define DEFAULT_LINES   1024
+#define DEFAULT_LINES   (1024 * CCI_LINES)
+#define TEST_DURATION   5
 
 #define BUF_SIZE_BYTES      (STRIDE_ACS * DEFAULT_LINES * LINE_BYTES)
 #define BUF_SIZE_INT        (BUF_SIZE_BYTES / 4)

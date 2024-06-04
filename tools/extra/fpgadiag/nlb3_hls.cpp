@@ -316,7 +316,7 @@ bool nlb3::run()
         PRINT("MASTER WRITE = %08lx\n", data);
         
         accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterRead), /*CACHELINE_ALIGNED_ADDR*/(inp->iova()));
-        accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), /*ssCACHELINE_ALIGNED_ADDR*/(out->iova()));
+        accelerator_->write_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), /*CACHELINE_ALIGNED_ADDR*/(out->iova()));
         accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterRead), data);
         PRINT("MASTER READ = %016lx\n", data);
         accelerator_->read_mmio64(static_cast<uint32_t>(nlb3_csr::masterWrite), data);

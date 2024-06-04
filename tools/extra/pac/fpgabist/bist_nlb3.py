@@ -37,7 +37,7 @@ class Nlb3Mode(bc.BistMode):
     def __init__(self, print_):
         modes = ['read', 'write', 'trput']
         params = ('--mode={} '
-                  '--multi-cl=1 --begin=1024 --end=1024 --timeout-sec=5 --strided-access=1 '
+                  '--multi-cl=1 --begin=8192 --end=8192 --timeout-sec=5 --strided-access=1 '
                   '--cont {}')
         self.executables = {mode: params.format(mode, print_) for mode in modes}
 
