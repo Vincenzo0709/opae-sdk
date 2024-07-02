@@ -30,6 +30,8 @@ import subprocess
 
 import bist_common as bc
 
+MULTICL = 4
+DIM = 1024 * MULTICL
 
 class Nlb3Mode(bc.BistMode):
     name = "nlb3_hls"
@@ -37,9 +39,9 @@ class Nlb3Mode(bc.BistMode):
     def __init__(self, print_):
         modes = ['read', 'write', 'trput']
         params = ('--mode={} '
-                  '--multi-cl=1 --begin=8192 --end=8192 --timeout-sec=5 --strided-access=1 '
+                  '--multi-cl={} --begin={} --end={} --timeout-sec=5 --strided-access=1 '
                   '--cont {}')
-        self.executables = {mode: params.format(mode, print_) for mode in modes}
+        self.executables = {mode: params.format(mode, MULTICL, DIM, DIM, print_) for mode in modes}
 
     def run(self, gbs_path, bus_num):
         bc.load_gbs(gbs_path, bus_num)

@@ -52,7 +52,7 @@ const uint32_t mtnlb_max_threads = 2047;  // 11 bits
 const uint32_t mtnlb_max_count = 1048575; // 20 bits
 const uint32_t mtnlb_max_stride = 4294967295; // 32 bit
 
-const uint32_t hls_base_offset = 0x80; //match tho component offset in Platform Designer
+const uint32_t hls_base_offset = 0x80; //match the component offset in Platform Designer
 
 /// @brief test mode constants to use for
 /// NLB config register
